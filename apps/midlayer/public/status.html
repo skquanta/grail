@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Grail — Operator Status</title>
+  <style>
+    :root { --bg:#0b0b10; --card:#15151c; --muted:#838391; --fg:#e9e9f1; --accent:#9945FF; --ok:#14F195; --warn:#F2C94C; --bad:#FF5C5C; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; background: var(--bg); color: var(--fg); }
+    header { padding: 24px 32px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+    h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
+    h1 span { color: var(--muted); font-weight: 400; }
+    .live { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
+    main { padding: 32px; display: grid; gap: 16px; grid-template-columns: 1fr; }
+    .empty { padding: 64px; text-align: center; color: var(--muted); border: 1px dashed #2a2a35; border-radius: 12px; }
+    .card { background: var(--card); border: 1px solid #22222d; border-radius: 12px; padding: 20px; }
+    .row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #1c1c25; font-size: 14px; }
+    .row:last-child { border: 0; }
+    .row .k { color: var(--muted); }
+    .row .v { font-family: ui-monospace, SF Mono, Menlo, monospace; word-break: break-all; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+    .badge.PAYMENT_PENDING, .badge.PAYMENT_CONFIRMED { background: rgba(242,201,76,0.15); color: var(--warn); }
+    .badge.OCPP_STARTING, .badge.CHARGING, .badge.ENDING { background: rgba(153,69,255,0.18); color: var(--accent); }
+    .badge.SETTLED { background: rgba(20,241,149,0.15); color: var(--ok); }
+    .badge.FAILED, .badge.EXPIRED { background: rgba(255,92,92,0.15); color: var(--bad); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Grail <span>· Operator status</span></h1>
+    <div class="live"><span class="dot"></span><span id="ts">refreshing…</span></div>
+  </header>
+  <main id="root">
+    <div class="empty" id="empty">No session yet. Scan a QR to start.</div>
+  </main>
+  <script>
+    const root = document.getElementById('root');
+    const ts = document.getElementById('ts');
+
+    const fmtAmt = (n) => (n == null ? '—' : Number(n).toFixed(6));
+    const fmtKwh = (n) => (n == null ? '—' : Number(n).toFixed(4) + ' kWh');
+    const explorer = (sig) => sig ? `https://explorer.solana.com/tx/${sig}?cluster=devnet` : null;
+
+    function row(k, v, isHtml = false) {
+      const safe = isHtml ? v : (v == null ? '<span style="color:#555">—</span>' : escapeHtml(String(v)));
+      return `<div class="row"><div class="k">${k}</div><div class="v">${safe}</div></div>`;
+    }
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function link(label, href) {
+      return href ? `<a href="${href}" target="_blank" rel="noopener">${escapeHtml(label)}</a>` : `<span style="color:#555">—</span>`;
+    }
+
+    async function refresh() {
+      ts.textContent = new Date().toLocaleTimeString();
+      try {
+        const id = new URLSearchParams(location.search).get('id');
+        if (!id) {
+          root.innerHTML = `<div class="empty">Add <code>?id=&lt;sessionId&gt;</code> to the URL to inspect a session.</div>`;
+          return;
+        }
+        const r = await fetch(`/internal/v1/session/${id}`);
+        const s = await r.json();
+        if (s.error) {
+          root.innerHTML = `<div class="empty">Session ${escapeHtml(id)} not found.</div>`;
+          return;
+        }
+        root.innerHTML = `
+          <div class="card">
+            ${row('Session', s.id)}
+            ${row('Status', `<span class="badge ${escapeHtml(s.status)}">${escapeHtml(s.status)}</span>`, true)}
+            ${row('Tenant / Station', `${escapeHtml(s.tenantId)} · ${escapeHtml(s.stationId)} · connector ${s.connectorId}`)}
+            ${row('User wallet', s.userPublicKey)}
+            ${row('USDC locked', `${fmtAmt(s.usdcLocked)} USDC`)}
+            ${row('Energy delivered', fmtKwh(s.energyDeliveredKwh))}
+            ${row('Final cost', s.finalCostUsdc != null ? `${fmtAmt(s.finalCostUsdc)} USDC` : null)}
+            ${row('Grail fee', s.grailFeeUsdc != null ? `${fmtAmt(s.grailFeeUsdc)} USDC` : null)}
+            ${row('Refund', s.refundUsdc != null ? `${fmtAmt(s.refundUsdc)} USDC` : null)}
+            ${row('OCPP tx id', s.ocppTransactionId)}
+            ${row('Meter start (Wh)', s.meterStartWh)}
+            ${row('Lock signature', link(s.solanaSignature?.slice(0, 12) + '…', explorer(s.solanaSignature)), true)}
+            ${row('Settlement sig', link(s.settlementSignature?.slice(0, 12) + '…', explorer(s.settlementSignature)), true)}
+            ${row('Refund sig', link(s.refundSignature?.slice(0, 12) + '…', explorer(s.refundSignature)), true)}
+            ${row('Granted', s.grantedAt)}
+            ${row('Started', s.startedAt)}
+            ${row('Ended', s.endedAt)}
+            ${row('Settled', s.settledAt)}
+            ${s.failureReason ? row('Failure', s.failureReason) : ''}
+          </div>
+        `;
+      } catch (e) {
+        root.innerHTML = `<div class="empty">Error fetching session: ${escapeHtml(String(e))}</div>`;
+      }
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

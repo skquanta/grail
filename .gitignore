@@ -1,0 +1,28 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+*.tsbuildinfo
+coverage/
+.turbo/
+keypairs/
+*.pem
+*.key
+citrine-new.pem
+
+# Strategy & context brain-dumps — NEVER COMMIT THESE.
+# They are the IP — business strategy, founder context, internal architecture decisions.
+# Local working files only.
+CLAUDE.md
+GRAIL_MASTER.md
+
+# CitrineOS source is managed as its own repo at github.com/skquanta/citrineos-core.
+# Locally and on EC2 it's cloned as a sibling — do not include it in the grail private repo.
+citrineos-core/
+

@@ -1,0 +1,30 @@
+{
+  "name": "@grail/blink",
+  "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "author": "Shashwot Bhattarai",
+  "scripts": {
+    "dev": "ts-node --transpile-only src/main.ts",
+    "start": "ts-node --transpile-only src/main.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@grail/b2g-protocol": "*",
+    "@fastify/static": "^7.0.4",
+    "@nestjs/common": "^10.4.4",
+    "@nestjs/core": "^10.4.4",
+    "@nestjs/platform-fastify": "^10.4.4",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.3",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: LicenseRef-Grail-Proprietary
+# Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+
+# Grail Midlayer — NestJS orchestrator
+# Build context = repo root (so we get workspace lockfile + shared packages)
+FROM node:20-bookworm-slim AS base
+WORKDIR /app
+
+# Install OS deps for Prisma binary engine
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates curl && rm -rf /var/lib/apt/lists/*
+
+# Copy workspace manifest + lockfile + workspace package.jsons (for caching)
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/b2g-protocol/package.json packages/b2g-protocol/
+COPY apps/midlayer/package.json apps/midlayer/
+
+# Install all workspace deps (hoisted)
+RUN npm install --workspaces --include-workspace-root --no-audit --no-fund
+
+# Copy sources
+COPY packages/b2g-protocol packages/b2g-protocol
+COPY apps/midlayer apps/midlayer
+
+# Generate Prisma client
+WORKDIR /app/apps/midlayer
+RUN npx prisma generate
+
+EXPOSE 3001
+
+# Run via ts-node (transpile-only for fast start). Production would npm run build then node dist/main.js.
+CMD ["npx", "ts-node", "--transpile-only", "src/main.ts"]

@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: LicenseRef-Grail-Proprietary
+# Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+#
+# Grail proprietary services for the EC2 deployment.
+# Runs ALONGSIDE the existing CitrineOS compose at ~/citrineos-core/Server/docker-compose.yml.
+# All three services use host networking so they share localhost with CitrineOS containers' published ports.
+#
+# Usage on EC2 (from repo root):
+#   docker compose -f infra/docker-compose.yml up -d --build
+#
+# View cloudflared's quick tunnel URL:
+#   docker logs grail-cloudflared 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1
+#
+# Stop:
+#   docker compose -f infra/docker-compose.yml down
+
+services:
+  grail-midlayer:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.midlayer
+    container_name: grail-midlayer
+    network_mode: host
+    env_file:
+      - ../apps/midlayer/.env
+    restart: unless-stopped
+
+  grail-blink:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.blink
+    container_name: grail-blink
+    network_mode: host
+    env_file:
+      - ../apps/blink/.env
+    restart: unless-stopped
+    depends_on:
+      - grail-midlayer
+
+  # Cloudflare quick tunnel — gives an ephemeral *.trycloudflare.com HTTPS URL.
+  # No account/auth required. Tunnel URL changes on every restart; keep this service running.
+  # Capture the URL via:  docker logs grail-cloudflared 2>&1 | grep trycloudflare
+  grail-cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: grail-cloudflared
+    network_mode: host
+    command: tunnel --url http://localhost:3000 --no-autoupdate
+    restart: unless-stopped
+    depends_on:
+      - grail-blink

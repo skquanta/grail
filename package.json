@@ -1,0 +1,30 @@
+{
+  "name": "grail",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Grail — Blink-to-Grid (B2G) Protocol. Solana Actions ↔ OCPP 1.6 (CitrineOS).",
+  "license": "SEE LICENSE IN ./LICENSE",
+  "author": "Shashwot Bhattarai",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "setup:solana": "npx tsx infra/seed/setup-solana.ts",
+    "dev:blink": "npm run dev -w apps/blink",
+    "dev:midlayer": "npm run dev -w apps/midlayer"
+  },
+  "devDependencies": {
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.3",
+    "@types/node": "^22.7.4",
+    "bs58": "^6.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "uuid": "9.0.1"
+  }
+}

@@ -1,0 +1,65 @@
+// Grail Midlayer — Prisma schema
+// Stores tenants, B2G sessions, on-chain signatures, and OCPP correlation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String    @id @default(cuid())
+  tenantId    String    @unique
+  name        String
+  masterIdTag String
+  cpoWallet   String
+  ratePerKwh  Float
+  feePercent  Float     @default(0.75)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  sessions    Session[]
+}
+
+model Session {
+  id                  String         @id @default(cuid())
+  solanaSignature     String         @unique
+  userPublicKey       String
+  tenantId            String
+  tenant              Tenant         @relation(fields: [tenantId], references: [tenantId])
+  stationId           String
+  connectorId         Int
+  usdcLocked          Float
+  ocppTransactionId   String?        @unique
+  meterStartWh        Int?
+  energyDeliveredKwh  Float?
+  finalCostUsdc       Float?
+  grailFeeUsdc        Float?
+  refundUsdc          Float?
+  settlementSignature String?
+  refundSignature     String?
+  status              SessionStatus  @default(PAYMENT_PENDING)
+  failureReason       String?
+  grantedAt           DateTime       @default(now())
+  startedAt           DateTime?
+  endedAt             DateTime?
+  settledAt           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([stationId, connectorId, status])
+  @@index([status])
+}
+
+enum SessionStatus {
+  PAYMENT_PENDING
+  PAYMENT_CONFIRMED
+  OCPP_STARTING
+  CHARGING
+  ENDING
+  SETTLED
+  FAILED
+  EXPIRED
+}

@@ -1,0 +1,22 @@
+Grail B2G Protocol — Session Grant Message specification
+Copyright (c) 2026 Shashwot Bhattarai
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+This package contains the open Session Grant Message schema for the
+Blink-to-Grid (B2G) Protocol. It is published as an open standard to
+encourage adoption across wallets, charging networks, and integrators.
+
+The proprietary orchestration components of Grail (apps/midlayer,
+apps/blink, infrastructure scripts, etc.) are licensed separately —
+see the LICENSE file at the repository root.

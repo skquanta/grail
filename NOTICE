@@ -1,0 +1,18 @@
+Grail — Blink-to-Grid (B2G) Protocol
+Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+
+This product contains software components under different licenses:
+
+1. Grail proprietary code (apps/, infra/, packages/solana-utils/ when added)
+   Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+   See LICENSE at repo root.
+
+2. B2G Session Grant Protocol (packages/b2g-protocol/)
+   Apache License, Version 2.0.
+   See packages/b2g-protocol/LICENSE.
+
+3. CitrineOS Core (citrineos-core/)
+   Apache License, Version 2.0.
+   Copyright (c) Contributors to the CitrineOS Project.
+   See citrineos-core/LICENSE.
+   Unmodified upstream mirror.

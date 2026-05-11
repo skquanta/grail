@@ -1,0 +1,36 @@
+Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+
+This source code and its associated artifacts (the "Software") are proprietary
+and confidential. The Software is not licensed for redistribution, modification,
+sublicensing, or commercial use except as explicitly authorized in writing by
+the copyright holder or his assignee.
+
+The Software will be assigned to Grail Pte. Ltd. (Singapore) upon incorporation
+of that entity. Until such assignment is recorded, the Software remains the
+personal intellectual property of the copyright holder.
+
+----------------------------------------------------------------------
+
+License exceptions for specific subdirectories:
+
+  packages/b2g-protocol/ — Licensed under the Apache License, Version 2.0
+                          (see packages/b2g-protocol/LICENSE).
+                          The B2G Session Grant schema is published as an open
+                          protocol to encourage cross-ecosystem adoption.
+
+  citrineos-core/        — Third-party Apache 2.0 code, unmodified mirror of
+                          the upstream CitrineOS project. See
+                          citrineos-core/LICENSE for the original license.
+
+----------------------------------------------------------------------
+
+UNAUTHORIZED USE PROHIBITED. The Software is provided to authorized recipients
+solely for the purpose of evaluation, integration, or operation under a separate
+written agreement. Any other use — including but not limited to copying,
+modifying, distributing, publicly performing, publicly displaying, or creating
+derivative works of the Software — without prior written permission of the
+copyright holder is strictly prohibited and may result in legal action.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. THE COPYRIGHT HOLDER IS NOT LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM USE OF THE SOFTWARE.

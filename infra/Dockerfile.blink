@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: LicenseRef-Grail-Proprietary
+# Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
+
+# Grail Blink — NestJS + Fastify Solana Actions gateway
+# Build context = repo root
+FROM node:20-bookworm-slim AS base
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/b2g-protocol/package.json packages/b2g-protocol/
+COPY apps/blink/package.json apps/blink/
+
+RUN npm install --workspaces --include-workspace-root --no-audit --no-fund
+
+COPY packages/b2g-protocol packages/b2g-protocol
+COPY apps/blink apps/blink
+
+WORKDIR /app/apps/blink
+
+EXPOSE 3000
+
+CMD ["npx", "ts-node", "--transpile-only", "src/main.ts"]
