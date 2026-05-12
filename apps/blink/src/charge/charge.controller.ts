@@ -5,125 +5,76 @@ import {
   Body,
   Controller,
   Get,
-  Logger,
+  HttpCode,
   Param,
   Post,
   Query,
+  Req,
 } from "@nestjs/common";
+import type { FastifyRequest } from "fastify";
 import { ChargeService } from "./charge.service";
-import { MidlayerClient } from "../midlayer.client";
 
-const DEFAULT_ICON =
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Solana_logo.png/240px-Solana_logo.png";
+interface InitiateBody {
+  account: string; // base58 wallet pubkey sent by Phantom
+}
 
 @Controller("v1/charge")
 export class ChargeController {
-  private readonly logger = new Logger(ChargeController.name);
+  constructor(private readonly chargeService: ChargeService) {}
 
-  constructor(
-    private readonly charge: ChargeService,
-    private readonly midlayer: MidlayerClient,
-  ) {}
-
-  @Get(":tenantId/:stationId/:connectorId")
-  getMetadata(
-    @Param("tenantId") tenantId: string,
+  // ── GET: return the Blink action card ────────────────────────────────────
+  @Get(":cpo/:stationId/:connectorId")
+  getAction(
+    @Param("cpo") cpo: string,
     @Param("stationId") stationId: string,
     @Param("connectorId") connectorId: string,
+    @Req() req: FastifyRequest,
   ) {
-    const base = process.env.BLINK_BASE_URL ?? "";
-    const href = (amt: number): string =>
-      `${base}/v1/charge/${tenantId}/${stationId}/${connectorId}?amount=${amt}`;
+    // Fastify exposes hostname separately — reconstruct the absolute base URL.
+    // Behind Cloudflare Tunnel the forwarded proto is always https.
+    const proto = (req.headers["x-forwarded-proto"] as string) ?? req.protocol ?? "https";
+    const host  = (req.headers["x-forwarded-host"]  as string) ?? req.hostname;
+    const base  = `${proto}://${host}`;
+    const path  = `/v1/charge/${cpo}/${stationId}/${connectorId}`;
+
     return {
-      type: "action",
-      title: `Grail — ${tenantId} / Station ${stationId}`,
-      icon: process.env.BLINK_ICON_URL ?? DEFAULT_ICON,
-      description: `OCPP 1.6 AC charger · 0.15 USDC/kWh · Connector ${connectorId}. Tap an amount to lock USDC and start charging — unused USDC is refunded automatically.`,
-      label: "Start Charging",
+      type:        "action",
+      title:       `Grail — ${cpo} / Station ${stationId}`,
+      icon:        "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Solana_logo.png/240px-Solana_logo.png",
+      description: `OCPP 1.6 AC charger · 0.15 USDC/kWh · Connector ${connectorId}. Tap an amount to lock USDC — unused USDC is refunded automatically.`,
+      label:       "Start Charging",
       links: {
         actions: [
-          { label: "5 USDC", href: href(5) },
-          { label: "10 USDC", href: href(10) },
-          { label: "20 USDC", href: href(20) },
+          { label: "5 USDC",  href: `${base}${path}?amount=5`  },
+          { label: "10 USDC", href: `${base}${path}?amount=10` },
+          { label: "20 USDC", href: `${base}${path}?amount=20` },
         ],
       },
     };
   }
 
-  @Post(":tenantId/:stationId/:connectorId")
-  async startCharge(
-    @Param("tenantId") tenantId: string,
+  // ── POST: Phantom POSTs { account } here when the user taps a button ─────
+  @Post(":cpo/:stationId/:connectorId")
+  @HttpCode(200)
+  async initiateCharge(
+    @Param("cpo") cpo: string,
     @Param("stationId") stationId: string,
     @Param("connectorId") connectorId: string,
     @Query("amount") amount: string,
-    @Body() body: { account?: string },
+    @Body() body: InitiateBody,
   ) {
-    const amt = Number(amount);
-    if (!body?.account) {
-      return { message: "Missing 'account' in request body" };
-    }
-    if (!Number.isFinite(amt) || amt <= 0) {
-      return { message: `Invalid amount: ${amount}` };
-    }
-    const memo = `b2g:1.0|t=${tenantId}|s=${stationId}|c=${connectorId}|a=${amt}`;
-    this.logger.log(
-      `POST charge: tenant=${tenantId} station=${stationId} conn=${connectorId} amt=${amt} user=${body.account.slice(0, 8)}…`,
-    );
-    const txBase64 = await this.charge.buildChargeTx(body.account, amt, memo);
-    const base = process.env.BLINK_BASE_URL ?? "";
-    const nextHref = `${base}/v1/charge/confirm?tenantId=${tenantId}&stationId=${stationId}&connectorId=${connectorId}&amount=${amt}`;
-    return {
-      transaction: txBase64,
-      message: `Locking ${amt} USDC at ${tenantId} / Station ${stationId}`,
-      links: {
-        next: { type: "post", href: nextHref },
-      },
-    };
-  }
+    const { account } = body;
 
-  @Post("confirm")
-  async confirm(
-    @Query("tenantId") tenantId: string,
-    @Query("stationId") stationId: string,
-    @Query("connectorId") connectorId: string,
-    @Query("amount") amount: string,
-    @Body() body: { account?: string; signature?: string },
-  ) {
-    const icon = process.env.BLINK_ICON_URL ?? DEFAULT_ICON;
-    if (!body?.account || !body?.signature) {
-      return {
-        type: "completed",
-        title: "Confirmation failed",
-        icon,
-        description: "Wallet did not provide account+signature on the chained action.",
-      };
-    }
-    try {
-      const result = await this.midlayer.cryptoStart({
-        signature: body.signature,
-        userPublicKey: body.account,
-        tenantId,
-        stationId,
-        connectorId: Number(connectorId),
-        usdcAmount: Number(amount),
-      });
-      return {
-        type: "completed",
-        title: "Charging started",
-        icon,
-        description: `Session ${result.sessionId} — the charger is now dispensing energy. You'll be refunded any unused USDC when the session ends.`,
-      };
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ae = err as any;
-      const msg = ae?.response?.data?.message ?? ae?.message ?? "Unknown error";
-      this.logger.error(`confirm failed: ${msg}`);
-      return {
-        type: "completed",
-        title: "Charge failed",
-        icon,
-        description: String(msg),
-      };
-    }
+    // Build + serialize the Solana transaction (USDC lock to escrow, etc.)
+    const { transaction, message } = await this.chargeService.buildTransaction({
+      cpo,
+      stationId,
+      connectorId,
+      amountUsdc: Number(amount),
+      payerPubkey: account,
+    });
+
+    // Phantom expects { transaction: "<base64>", message?: string }
+    return { transaction, message };
   }
 }

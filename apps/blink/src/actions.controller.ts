@@ -5,11 +5,21 @@ import { Controller, Get } from "@nestjs/common";
 
 @Controller()
 export class ActionsController {
+
+  // Phantom checks /actions.json first, then /.well-known/solana-actions.json
   @Get("actions.json")
   manifest() {
     return {
-      rules: [{ pathPattern: "/v1/charge/**", apiPath: "/v1/charge/**" }],
+      rules: [
+        { pathPattern: "/v1/charge/**", apiPath: "/v1/charge/**" },
+      ],
     };
+  }
+
+  // Some wallets/validators check the well-known path too
+  @Get(".well-known/solana-actions.json")
+  wellKnownManifest() {
+    return this.manifest();
   }
 
   @Get("health")

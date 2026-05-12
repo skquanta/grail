@@ -12,6 +12,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "setup:solana": "npx tsx infra/seed/setup-solana.ts",
+    "test:simulate-user": "npx tsx infra/test/simulate-user.ts",
     "dev:blink": "npm run dev -w apps/blink",
     "dev:midlayer": "npm run dev -w apps/midlayer"
   },
