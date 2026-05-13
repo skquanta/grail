@@ -13,6 +13,16 @@ import {
 } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ChargeService } from "./charge.service";
+import { MidlayerClient } from "../midlayer.client";
+
+interface ConfirmBody {
+  signature: string;
+  userPublicKey: string;
+  tenantId: string;
+  stationId: string;
+  connectorId: number;
+  usdcAmount: number;
+}
 
 interface InitiateBody {
   account: string; // base58 wallet pubkey sent by Phantom
@@ -20,7 +30,10 @@ interface InitiateBody {
 
 @Controller("v1/charge")
 export class ChargeController {
-  constructor(private readonly chargeService: ChargeService) {}
+  constructor(
+    private readonly chargeService: ChargeService,
+    private readonly midlayer: MidlayerClient,
+  ) {}
 
   // ── GET: return the Blink action card ────────────────────────────────────
   @Get(":cpo/:stationId/:connectorId")
@@ -76,5 +89,19 @@ export class ChargeController {
 
     // Phantom expects { transaction: "<base64>", message?: string }
     return { transaction, message };
+  }
+
+  // ── POST /v1/charge/confirm — called by demo.html after wallet signs ──────
+  @Post("confirm")
+  @HttpCode(200)
+  async confirm(@Body() body: ConfirmBody) {
+    return this.midlayer.cryptoStart({
+      signature: body.signature,
+      userPublicKey: body.userPublicKey,
+      tenantId: body.tenantId,
+      stationId: body.stationId,
+      connectorId: Number(body.connectorId),
+      usdcAmount: body.usdcAmount,
+    });
   }
 }

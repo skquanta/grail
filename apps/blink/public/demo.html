@@ -241,8 +241,26 @@
 
       const { signature } = await provider.signAndSendTransaction(tx);
 
+      setStatus('Transaction confirmed. Starting charge session…', 'info');
+
+      // Notify midlayer to verify on-chain and trigger OCPP RemoteStart
+      const confirmRes = await fetch(`${location.origin}/v1/charge/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signature,
+          userPublicKey: walletPubkey,
+          tenantId: tenant,
+          stationId: station,
+          connectorId: Number(connector),
+          usdcAmount: Number(amount),
+        }),
+      });
+      const confirmData = await confirmRes.json();
+
       setStatus(
-        `✅ ${message}<br><br>` +
+        `✅ ${message}<br>` +
+        `Session <b>${confirmData.sessionId}</b> — ${confirmData.status}<br><br>` +
         `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">View on Explorer →</a>`,
         'success'
       );
