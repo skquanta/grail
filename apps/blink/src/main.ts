@@ -9,9 +9,7 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import fastifyStatic from "@fastify/static";
 import type { FastifyInstance } from "fastify";
-import * as path from "path";
 import { AppModule } from "./app.module";
 
 const SOLANA_BLOCKCHAIN_ID_DEVNET =
@@ -43,13 +41,6 @@ async function bootstrap(): Promise<void> {
     reply.header("X-Action-Version", "2.4");
     reply.header("X-Blockchain-Ids", SOLANA_BLOCKCHAIN_ID_DEVNET);
     done(null, payload);
-  });
-
-  const fastify2 = app.getHttpAdapter().getInstance() as FastifyInstance;
-  await fastify2.register(fastifyStatic, {
-    root: path.join(__dirname, "..", "public"),
-    prefix: "/",
-    decorateReply: false,
   });
 
   const port = Number(process.env.PORT ?? 3000);

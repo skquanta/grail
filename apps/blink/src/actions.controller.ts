@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-Grail-Proprietary
 // Copyright (c) 2026 Shashwot Bhattarai. All Rights Reserved.
 
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Res } from "@nestjs/common";
+import type { FastifyReply } from "fastify";
+import * as fs from "fs";
+import * as path from "path";
 
 @Controller()
 export class ActionsController {
@@ -25,5 +28,14 @@ export class ActionsController {
   @Get("health")
   health() {
     return { status: "ok", service: "grail-blink", ts: new Date().toISOString() };
+  }
+
+  @Get("demo")
+  demo(@Res() reply: FastifyReply) {
+    const html = fs.readFileSync(
+      path.resolve(__dirname, "..", "public", "demo.html"),
+      "utf8",
+    );
+    reply.type("text/html").send(html);
   }
 }
