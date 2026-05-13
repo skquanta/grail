@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grail — EV Charging</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      max-width: 400px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .card-icon {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+    .card-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .card-body { padding: 20px; }
+    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .card-desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
+    .btn-group { display: flex; flex-direction: column; gap: 10px; }
+    .btn {
+      background: #9945FF;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .status.info { background: #1e2a3a; color: #7eb8f7; display: block; }
+    .status.success { background: #1a2e1a; color: #6fcf6f; display: block; }
+    .status.error { background: #2e1a1a; color: #f76f6f; display: block; }
+    .status a { color: inherit; word-break: break-all; }
+    .wallet-bar {
+      padding: 12px 20px;
+      background: #111;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .wallet-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; margin-right: 6px; }
+    .wallet-bar .dot.connected { background: #6fcf6f; }
+    #connect-btn {
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="wallet-bar">
+    <span><span class="dot" id="wallet-dot"></span><span id="wallet-label">Not connected</span></span>
+    <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+  <div class="card-icon">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Solana_logo.png/240px-Solana_logo.png" alt="Solana" />
+  </div>
+  <div class="card-body">
+    <div class="card-title" id="card-title">Loading…</div>
+    <div class="card-desc" id="card-desc"></div>
+    <div class="btn-group" id="btn-group"></div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+  // Parse ?station= from URL, fall back to path segments
+  const params = new URLSearchParams(location.search);
+  const tenant = params.get('tenant') || 'demo-cpo';
+  const station = params.get('station') || 'ioc1';
+  const connector = params.get('connector') || '1';
+  const actionBase = `${location.origin}/v1/charge/${tenant}/${station}/${connector}`;
+
+  let walletPubkey = null;
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.className = 'status ' + type;
+    el.innerHTML = msg;
+  }
+
+  async function connectWallet() {
+    const provider = window.solana || window.backpack;
+    if (!provider) {
+      setStatus('No wallet found. Open this page inside Phantom or Backpack browser.', 'error');
+      return;
+    }
+    try {
+      const resp = await provider.connect();
+      walletPubkey = resp.publicKey.toString();
+      document.getElementById('wallet-dot').className = 'dot connected';
+      document.getElementById('wallet-label').textContent = walletPubkey.slice(0,4) + '…' + walletPubkey.slice(-4);
+      document.getElementById('connect-btn').textContent = 'Connected';
+      document.getElementById('connect-btn').disabled = true;
+      document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
+      setStatus('Wallet connected. Choose an amount to start charging.', 'info');
+    } catch (e) {
+      setStatus('Connection rejected: ' + e.message, 'error');
+    }
+  }
+
+  async function charge(amount) {
+    if (!walletPubkey) { setStatus('Connect your wallet first.', 'error'); return; }
+    const provider = window.solana || window.backpack;
+    setStatus('Building transaction…', 'info');
+    document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+    try {
+      // 1. Get transaction from our Blink POST endpoint
+      const res = await fetch(`${actionBase}?amount=${amount}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: walletPubkey }),
+      });
+      if (!res.ok) throw new Error('Blink API error: ' + res.status);
+      const { transaction, message } = await res.json();
+
+      setStatus('Please approve in your wallet…', 'info');
+
+      // 2. Deserialize, sign, and send via wallet
+      const txBytes = Uint8Array.from(atob(transaction), c => c.charCodeAt(0));
+
+      // Use wallet signAndSendTransaction if available, else signTransaction + manual send
+      let signature;
+      if (provider.signAndSendTransaction) {
+        const result = await provider.signAndSendTransaction(
+          { serialize: () => txBytes, serializeMessage: () => txBytes },
+          { skipPreflight: false }
+        );
+        signature = result.signature;
+      } else {
+        // Backpack / fallback: deserialize via web3.js loaded from CDN
+        throw new Error('Please use signAndSendTransaction-capable wallet');
+      }
+
+      setStatus(
+        `✅ ${message}<br><br>` +
+        `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">View on Explorer →</a>`,
+        'success'
+      );
+    } catch (e) {
+      setStatus('Error: ' + (e.message || e), 'error');
+      document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
+    }
+  }
+
+  async function loadAction() {
+    try {
+      const res = await fetch(actionBase);
+      const action = await res.json();
+      document.getElementById('card-title').textContent = action.title;
+      document.getElementById('card-desc').textContent = action.description;
+      const group = document.getElementById('btn-group');
+      group.innerHTML = '';
+      for (const a of action.links.actions) {
+        const amount = new URL(a.href).searchParams.get('amount');
+        const btn = document.createElement('button');
+        btn.className = 'btn action-btn';
+        btn.textContent = a.label;
+        btn.disabled = true; // enabled after wallet connect
+        btn.onclick = () => charge(amount);
+        group.appendChild(btn);
+      }
+    } catch (e) {
+      document.getElementById('card-title').textContent = 'Failed to load action';
+      setStatus('Could not reach Blink API: ' + e.message, 'error');
+    }
+  }
+
+  // Auto-connect if wallet already approved this origin
+  window.addEventListener('load', async () => {
+    loadAction();
+    const provider = window.solana || window.backpack;
+    if (provider?.isConnected) {
+      await connectWallet();
+    }
+  });
+</script>
+
+<!-- Load @solana/web3.js for proper tx deserialization -->
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  // Override charge() to use proper VersionedTransaction deserialization
+  async function charge(amount) {
+    if (!walletPubkey) { setStatus('Connect your wallet first.', 'error'); return; }
+    const provider = window.solana || window.backpack;
+    setStatus('Building transaction…', 'info');
+    document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+    try {
+      const res = await fetch(`${actionBase}?amount=${amount}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: walletPubkey }),
+      });
+      if (!res.ok) throw new Error('Blink API error: ' + res.status);
+      const { transaction, message } = await res.json();
+
+      setStatus('Please approve in your wallet…', 'info');
+
+      const txBytes = Uint8Array.from(atob(transaction), c => c.charCodeAt(0));
+      const tx = solanaWeb3.VersionedTransaction.deserialize(txBytes);
+
+      const { signature } = await provider.signAndSendTransaction(tx);
+
+      setStatus(
+        `✅ ${message}<br><br>` +
+        `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">View on Explorer →</a>`,
+        'success'
+      );
+    } catch (e) {
+      setStatus('❌ ' + (e.message || e), 'error');
+      document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
+    }
+  }
+</script>
+</body>
+</html>
