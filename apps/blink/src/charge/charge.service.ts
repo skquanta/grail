@@ -43,6 +43,18 @@ export class ChargeService {
     );
   }
 
+  async buildTransaction(params: {
+    cpo: string;
+    stationId: string;
+    connectorId: string;
+    amountUsdc: number;
+    payerPubkey: string;
+  }): Promise<{ transaction: string; message: string }> {
+    const memo = `grail:${params.cpo}:${params.stationId}:${params.connectorId}:${params.amountUsdc}USDC`;
+    const transaction = await this.buildChargeTx(params.payerPubkey, params.amountUsdc, memo);
+    return { transaction, message: `Locking ${params.amountUsdc} USDC — Station ${params.stationId} Connector ${params.connectorId}` };
+  }
+
   async buildChargeTx(
     userPubkey: string,
     amountUsdc: number,

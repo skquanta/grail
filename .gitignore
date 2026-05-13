@@ -26,3 +26,7 @@ GRAIL_MASTER.md
 # Locally and on EC2 it's cloned as a sibling — do not include it in the grail private repo.
 citrineos-core/
 
+# Operational session logs / status snapshots — ephemeral, may contain tunnel URLs, pubkeys, IPs.
+STATUS*.md
+SESSION*.md
+
