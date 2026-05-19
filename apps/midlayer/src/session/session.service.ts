@@ -127,11 +127,19 @@ export class SessionService {
       orderBy: { startedAt: "desc" },
     });
     if (!session) return;
-    const consumedKwh = Math.max(0, energyKwh - (session.meterStartWh ?? 0) / 1000);
-    await this.db.session.update({
-      where: { id: session.id },
-      data: { liveEnergyKwh: consumedKwh },
-    });
+    if (session.meterStartKwh == null) {
+      // First MeterValues — capture float baseline, consumed = 0
+      await this.db.session.update({
+        where: { id: session.id },
+        data: { meterStartKwh: energyKwh, liveEnergyKwh: 0 },
+      });
+    } else {
+      const consumedKwh = Math.max(0, energyKwh - session.meterStartKwh);
+      await this.db.session.update({
+        where: { id: session.id },
+        data: { liveEnergyKwh: consumedKwh },
+      });
+    }
   }
 
   async onStartTransaction(
