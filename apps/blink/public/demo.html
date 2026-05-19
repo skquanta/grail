@@ -264,11 +264,15 @@
     document.getElementById('stop-btn').disabled = true;
     setStatus('Sending stop signal to charger…', 'info');
     try {
-      await fetch(`${location.origin}/v1/charge/stop`, {
+      const res = await fetch(`${location.origin}/v1/charge/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: activeSessionId }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: res.statusText }));
+        throw new Error(err.message || JSON.stringify(err));
+      }
       setStatus('Stop sent. Waiting for charger to confirm…', 'info');
     } catch (e) {
       setStatus('Stop failed: ' + e.message, 'error');

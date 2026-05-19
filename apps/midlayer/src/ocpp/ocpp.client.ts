@@ -63,4 +63,26 @@ export class OcppClient {
     this.logger.log(`remoteStopTransaction response: ${JSON.stringify(data)}`);
     return data;
   }
+
+  // Returns the active OCPP transactionId for a station from CitrineOS Hasura DB.
+  // Used as fallback when the midlayer webhook missed StartTransaction (e.g. Subscription was absent).
+  async getActiveTransactionId(stationId: string): Promise<number | null> {
+    const hasuraUrl = process.env.CITRINEOS_HASURA_URL ?? "http://localhost:8090";
+    try {
+      const { data } = await axios.post(
+        `${hasuraUrl}/v1/graphql`,
+        {
+          query: `{ Transactions(where:{stationId:{_eq:"${stationId}"},isActive:{_eq:true}},order_by:{createdAt:desc},limit:1) { transactionId meterStart } }`,
+        },
+        { headers: { "Content-Type": "application/json" }, timeout: 5_000 },
+      );
+      const tx = data?.data?.Transactions?.[0];
+      if (tx?.transactionId != null) {
+        return Number(tx.transactionId);
+      }
+    } catch (err) {
+      this.logger.warn(`getActiveTransactionId failed: ${err}`);
+    }
+    return null;
+  }
 }

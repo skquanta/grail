@@ -96,14 +96,27 @@ export class SessionService {
     if (!["OCPP_STARTING", "CHARGING", "ENDING"].includes(session.status)) {
       throw new BadRequestException(`Session ${session.id} is in status ${session.status} — cannot stop`);
     }
-    if (!session.ocppTransactionId) {
-      throw new BadRequestException(`Session ${session.id} has no OCPP transaction ID yet — charger hasn't started`);
+
+    let txId = session.ocppTransactionId ? Number(session.ocppTransactionId) : null;
+
+    // Webhook may have been missing (e.g. Subscription wiped on restart) — look up from CitrineOS
+    if (txId == null) {
+      txId = await this.ocpp.getActiveTransactionId(session.stationId);
+      if (txId != null) {
+        await this.db.session.update({
+          where: { id: session.id },
+          data: { ocppTransactionId: String(txId), status: "CHARGING" },
+        });
+        this.logger.log(`Recovered txId=${txId} from CitrineOS for session ${session.id}`);
+      }
     }
-    await this.ocpp.remoteStopTransaction({
-      stationId: session.stationId,
-      transactionId: Number(session.ocppTransactionId),
-    });
-    this.logger.log(`RemoteStop sent for session ${session.id} txId=${session.ocppTransactionId}`);
+
+    if (txId == null) {
+      throw new BadRequestException(`No active OCPP transaction found for station ${session.stationId}`);
+    }
+
+    await this.ocpp.remoteStopTransaction({ stationId: session.stationId, transactionId: txId });
+    this.logger.log(`RemoteStop sent for session ${session.id} txId=${txId}`);
     return { success: true, sessionId: session.id };
   }
 
