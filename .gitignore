@@ -29,4 +29,4 @@ citrineos-core/
 # Operational session logs / status snapshots — ephemeral, may contain tunnel URLs, pubkeys, IPs.
 STATUS*.md
 SESSION*.md
-
+EC2_DEPLOY.md
