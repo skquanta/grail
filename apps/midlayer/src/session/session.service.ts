@@ -92,6 +92,21 @@ export class SessionService {
     return this.db.session.findUnique({ where: { id } });
   }
 
+  async stopSession(session: { id: string; stationId: string; ocppTransactionId: string | null; status: string }) {
+    if (!["OCPP_STARTING", "CHARGING", "ENDING"].includes(session.status)) {
+      throw new BadRequestException(`Session ${session.id} is in status ${session.status} — cannot stop`);
+    }
+    if (!session.ocppTransactionId) {
+      throw new BadRequestException(`Session ${session.id} has no OCPP transaction ID yet — charger hasn't started`);
+    }
+    await this.ocpp.remoteStopTransaction({
+      stationId: session.stationId,
+      transactionId: Number(session.ocppTransactionId),
+    });
+    this.logger.log(`RemoteStop sent for session ${session.id} txId=${session.ocppTransactionId}`);
+    return { success: true, sessionId: session.id };
+  }
+
   // Webhook handler entrypoints — see WebhookController.
   async onStartTransaction(
     stationId: string,

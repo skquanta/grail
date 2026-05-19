@@ -58,9 +58,11 @@ export class ChargeController {
       label:       "Start Charging",
       links: {
         actions: [
-          { label: "5 USDC",  href: `${base}${path}?amount=5`  },
-          { label: "10 USDC", href: `${base}${path}?amount=10` },
-          { label: "20 USDC", href: `${base}${path}?amount=20` },
+          { label: "0.25 USDC", href: `${base}${path}?amount=0.25` },
+          { label: "0.5 USDC",  href: `${base}${path}?amount=0.5`  },
+          { label: "1 USDC",    href: `${base}${path}?amount=1`    },
+          { label: "5 USDC",    href: `${base}${path}?amount=5`    },
+          { label: "10 USDC",   href: `${base}${path}?amount=10`   },
         ],
       },
     };
@@ -103,5 +105,18 @@ export class ChargeController {
       connectorId: Number(body.connectorId),
       usdcAmount: body.usdcAmount,
     });
+  }
+
+  // ── GET /v1/charge/session/:id — poll session status ─────────────────────
+  @Get("session/:id")
+  async getSession(@Param("id") id: string) {
+    return this.midlayer.getSession(id);
+  }
+
+  // ── POST /v1/charge/stop — send RemoteStop to charger ────────────────────
+  @Post("stop")
+  @HttpCode(200)
+  async stop(@Body() body: { sessionId: string }) {
+    return this.midlayer.stopSession(body.sessionId);
   }
 }

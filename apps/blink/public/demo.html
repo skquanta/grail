@@ -26,35 +26,62 @@
     }
     .card-icon {
       width: 100%;
-      height: 180px;
+      height: 160px;
       object-fit: cover;
       background: #111;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 64px;
     }
     .card-icon img { width: 100%; height: 100%; object-fit: cover; }
     .card-body { padding: 20px; }
-    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-    .card-desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
-    .btn-group { display: flex; flex-direction: column; gap: 10px; }
+    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .card-desc { font-size: 13px; color: #aaa; margin-bottom: 16px; line-height: 1.5; }
+    .btn-group { display: flex; flex-direction: column; gap: 8px; }
+    .btn-row { display: flex; gap: 8px; }
     .btn {
       background: #9945FF;
       color: #fff;
       border: none;
       border-radius: 10px;
-      padding: 14px;
-      font-size: 15px;
+      padding: 12px 14px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: opacity 0.15s;
-      width: 100%;
+      flex: 1;
     }
     .btn:hover { opacity: 0.85; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .status {
+    .btn.stop {
+      background: #c0392b;
+      margin-top: 12px;
+      width: 100%;
+      font-size: 15px;
+      padding: 14px;
+      flex: unset;
+    }
+    .btn.stop:hover { opacity: 0.85; }
+    .session-box {
       margin-top: 16px;
+      padding: 12px;
+      background: #111;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+      font-size: 13px;
+      display: none;
+    }
+    .session-box.visible { display: block; }
+    .session-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .session-row:last-child { margin-bottom: 0; }
+    .session-label { color: #888; }
+    .session-value { font-weight: 600; }
+    .session-value.charging { color: #6fcf6f; }
+    .session-value.settling { color: #f7c96f; }
+    .session-value.settled { color: #6fcf6f; }
+    .session-value.failed { color: #f76f6f; }
+    .status {
+      margin-top: 12px;
       padding: 12px;
       border-radius: 8px;
       font-size: 13px;
@@ -73,8 +100,8 @@
       justify-content: space-between;
       font-size: 13px;
     }
-    .wallet-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; margin-right: 6px; }
-    .wallet-bar .dot.connected { background: #6fcf6f; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; margin-right: 6px; }
+    .dot.connected { background: #6fcf6f; }
     #connect-btn {
       background: #2a2a2a;
       color: #fff;
@@ -84,6 +111,7 @@
       font-size: 12px;
       cursor: pointer;
     }
+    .divider { border: none; border-top: 1px solid #2a2a2a; margin: 14px 0; }
   </style>
 </head>
 <body>
@@ -98,20 +126,58 @@
   <div class="card-body">
     <div class="card-title" id="card-title">Loading…</div>
     <div class="card-desc" id="card-desc"></div>
-    <div class="btn-group" id="btn-group"></div>
+
+    <!-- Charge amount buttons — hidden during/after session -->
+    <div id="charge-section">
+      <div class="btn-group" id="btn-group"></div>
+    </div>
+
+    <!-- Session status — shown after confirm -->
+    <div class="session-box" id="session-box">
+      <div class="session-row">
+        <span class="session-label">Status</span>
+        <span class="session-value" id="sess-status">—</span>
+      </div>
+      <div class="session-row">
+        <span class="session-label">Energy</span>
+        <span class="session-value" id="sess-energy">—</span>
+      </div>
+      <div class="session-row">
+        <span class="session-label">USDC locked</span>
+        <span class="session-value" id="sess-locked">—</span>
+      </div>
+      <div class="session-row" id="sess-cost-row" style="display:none">
+        <span class="session-label">Final cost</span>
+        <span class="session-value" id="sess-cost">—</span>
+      </div>
+      <div class="session-row" id="sess-refund-row" style="display:none">
+        <span class="session-label">Refund</span>
+        <span class="session-value" id="sess-refund">—</span>
+      </div>
+      <div class="session-row" id="sess-sig-row" style="display:none">
+        <span class="session-label">Settlement tx</span>
+        <span class="session-value"><a id="sess-sig-link" href="#" target="_blank" style="color:#9945FF;">View →</a></span>
+      </div>
+      <button class="btn stop" id="stop-btn" onclick="stopSession()" style="display:none">
+        ⏹ Stop Charging
+      </button>
+    </div>
+
     <div class="status" id="status"></div>
   </div>
 </div>
 
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <script>
-  // Parse ?station= from URL, fall back to path segments
-  const params = new URLSearchParams(location.search);
-  const tenant = params.get('tenant') || 'demo-cpo';
-  const station = params.get('station') || 'ioc1';
+  const params   = new URLSearchParams(location.search);
+  const tenant   = params.get('tenant') || 'demo-cpo';
+  const station  = params.get('station') || 'ioc1';
   const connector = params.get('connector') || '1';
   const actionBase = `${location.origin}/v1/charge/${tenant}/${station}/${connector}`;
 
   let walletPubkey = null;
+  let activeSessionId = null;
+  let pollTimer = null;
 
   function setStatus(msg, type) {
     const el = document.getElementById('status');
@@ -145,87 +211,6 @@
     setStatus('Building transaction…', 'info');
     document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
     try {
-      // 1. Get transaction from our Blink POST endpoint
-      const res = await fetch(`${actionBase}?amount=${amount}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: walletPubkey }),
-      });
-      if (!res.ok) throw new Error('Blink API error: ' + res.status);
-      const { transaction, message } = await res.json();
-
-      setStatus('Please approve in your wallet…', 'info');
-
-      // 2. Deserialize, sign, and send via wallet
-      const txBytes = Uint8Array.from(atob(transaction), c => c.charCodeAt(0));
-
-      // Use wallet signAndSendTransaction if available, else signTransaction + manual send
-      let signature;
-      if (provider.signAndSendTransaction) {
-        const result = await provider.signAndSendTransaction(
-          { serialize: () => txBytes, serializeMessage: () => txBytes },
-          { skipPreflight: false }
-        );
-        signature = result.signature;
-      } else {
-        // Backpack / fallback: deserialize via web3.js loaded from CDN
-        throw new Error('Please use signAndSendTransaction-capable wallet');
-      }
-
-      setStatus(
-        `✅ ${message}<br><br>` +
-        `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">View on Explorer →</a>`,
-        'success'
-      );
-    } catch (e) {
-      setStatus('Error: ' + (e.message || e), 'error');
-      document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
-    }
-  }
-
-  async function loadAction() {
-    try {
-      const res = await fetch(actionBase);
-      const action = await res.json();
-      document.getElementById('card-title').textContent = action.title;
-      document.getElementById('card-desc').textContent = action.description;
-      const group = document.getElementById('btn-group');
-      group.innerHTML = '';
-      for (const a of action.links.actions) {
-        const amount = new URL(a.href).searchParams.get('amount');
-        const btn = document.createElement('button');
-        btn.className = 'btn action-btn';
-        btn.textContent = a.label;
-        btn.disabled = true; // enabled after wallet connect
-        btn.onclick = () => charge(amount);
-        group.appendChild(btn);
-      }
-    } catch (e) {
-      document.getElementById('card-title').textContent = 'Failed to load action';
-      setStatus('Could not reach Blink API: ' + e.message, 'error');
-    }
-  }
-
-  // Auto-connect if wallet already approved this origin
-  window.addEventListener('load', async () => {
-    loadAction();
-    const provider = window.solana || window.backpack;
-    if (provider?.isConnected) {
-      await connectWallet();
-    }
-  });
-</script>
-
-<!-- Load @solana/web3.js for proper tx deserialization -->
-<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<script>
-  // Override charge() to use proper VersionedTransaction deserialization
-  async function charge(amount) {
-    if (!walletPubkey) { setStatus('Connect your wallet first.', 'error'); return; }
-    const provider = window.solana || window.backpack;
-    setStatus('Building transaction…', 'info');
-    document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
-    try {
       const res = await fetch(`${actionBase}?amount=${amount}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,12 +223,10 @@
 
       const txBytes = Uint8Array.from(atob(transaction), c => c.charCodeAt(0));
       const tx = solanaWeb3.VersionedTransaction.deserialize(txBytes);
-
       const { signature } = await provider.signAndSendTransaction(tx);
 
       setStatus('Transaction confirmed. Starting charge session…', 'info');
 
-      // Notify midlayer to verify on-chain and trigger OCPP RemoteStart
       const confirmRes = await fetch(`${location.origin}/v1/charge/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -257,18 +240,131 @@
         }),
       });
       const confirmData = await confirmRes.json();
+      activeSessionId = confirmData.sessionId;
 
       setStatus(
-        `✅ ${message}<br>` +
-        `Session <b>${confirmData.sessionId}</b> — ${confirmData.status}<br><br>` +
-        `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">View on Explorer →</a>`,
+        `✅ ${message} — session started<br>` +
+        `<a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank">Lock tx →</a>`,
         'success'
       );
+
+      // Hide charge buttons, show session panel
+      document.getElementById('charge-section').style.display = 'none';
+      document.getElementById('session-box').classList.add('visible');
+      document.getElementById('stop-btn').style.display = 'block';
+      startPolling();
     } catch (e) {
       setStatus('❌ ' + (e.message || e), 'error');
       document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
     }
   }
+
+  async function stopSession() {
+    if (!activeSessionId) return;
+    document.getElementById('stop-btn').disabled = true;
+    setStatus('Sending stop signal to charger…', 'info');
+    try {
+      await fetch(`${location.origin}/v1/charge/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: activeSessionId }),
+      });
+      setStatus('Stop sent. Waiting for charger to confirm…', 'info');
+    } catch (e) {
+      setStatus('Stop failed: ' + e.message, 'error');
+      document.getElementById('stop-btn').disabled = false;
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollSession, 4000);
+    pollSession();
+  }
+
+  async function pollSession() {
+    if (!activeSessionId) return;
+    try {
+      const res = await fetch(`${location.origin}/v1/charge/session/${activeSessionId}`);
+      const s = await res.json();
+      updateSessionBox(s);
+      if (s.status === 'SETTLED' || s.status === 'FAILED') {
+        clearInterval(pollTimer);
+        document.getElementById('stop-btn').style.display = 'none';
+      }
+    } catch (_) {}
+  }
+
+  function updateSessionBox(s) {
+    const statusEl = document.getElementById('sess-status');
+    statusEl.textContent = s.status || '—';
+    statusEl.className = 'session-value ' + (s.status || '').toLowerCase();
+
+    const kwh = s.energyDeliveredKwh != null
+      ? s.energyDeliveredKwh.toFixed(4) + ' kWh'
+      : s.meterStartWh != null ? `started @ ${s.meterStartWh} Wh` : '—';
+    document.getElementById('sess-energy').textContent = kwh;
+    document.getElementById('sess-locked').textContent = s.usdcLocked != null ? s.usdcLocked + ' USDC' : '—';
+
+    if (s.finalCostUsdc != null) {
+      document.getElementById('sess-cost').textContent = s.finalCostUsdc + ' USDC';
+      document.getElementById('sess-cost-row').style.display = 'flex';
+    }
+    if (s.refundUsdc != null && s.refundUsdc > 0) {
+      document.getElementById('sess-refund').textContent = s.refundUsdc + ' USDC';
+      document.getElementById('sess-refund-row').style.display = 'flex';
+    }
+    if (s.settlementSignature) {
+      document.getElementById('sess-sig-link').href =
+        `https://explorer.solana.com/tx/${s.settlementSignature}?cluster=devnet`;
+      document.getElementById('sess-sig-row').style.display = 'flex';
+    }
+
+    // Show stop button only while active
+    const active = ['OCPP_STARTING','CHARGING','ENDING'].includes(s.status);
+    document.getElementById('stop-btn').style.display = active ? 'block' : 'none';
+  }
+
+  async function loadAction() {
+    try {
+      const res = await fetch(actionBase);
+      const action = await res.json();
+      document.getElementById('card-title').textContent = action.title;
+      document.getElementById('card-desc').textContent = action.description;
+      const group = document.getElementById('btn-group');
+      group.innerHTML = '';
+
+      // Render buttons in two rows: small amounts | larger amounts
+      const row1 = document.createElement('div');
+      row1.className = 'btn-row';
+      const row2 = document.createElement('div');
+      row2.className = 'btn-row';
+
+      action.links.actions.forEach((a, i) => {
+        const amount = new URL(a.href).searchParams.get('amount');
+        const btn = document.createElement('button');
+        btn.className = 'btn action-btn';
+        btn.textContent = a.label;
+        btn.disabled = true;
+        btn.onclick = () => charge(amount);
+        (i < 3 ? row1 : row2).appendChild(btn);
+      });
+
+      if (row1.children.length) group.appendChild(row1);
+      if (row2.children.length) group.appendChild(row2);
+    } catch (e) {
+      document.getElementById('card-title').textContent = 'Failed to load action';
+      setStatus('Could not reach Blink API: ' + e.message, 'error');
+    }
+  }
+
+  window.addEventListener('load', async () => {
+    loadAction();
+    const provider = window.solana || window.backpack;
+    if (provider?.isConnected) {
+      await connectWallet();
+    }
+  });
 </script>
 </body>
 </html>
