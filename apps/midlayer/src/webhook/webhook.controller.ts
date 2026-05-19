@@ -64,6 +64,20 @@ export class WebhookController {
             payload.transactionId,
           );
         }
+      } else if (msgType === 2 && action === "MeterValues") {
+        const payload = rpc[3] as {
+          connectorId: number;
+          transactionId?: number;
+          meterValue?: Array<{ sampledValue?: Array<{ measurand?: string; value?: string; unit?: string }> }>;
+        };
+        const energySample = payload.meterValue
+          ?.flatMap(mv => mv.sampledValue ?? [])
+          .find(sv => sv.measurand === "Energy.Active.Import.Register");
+        if (energySample?.value != null) {
+          const energyWh = Math.round(parseFloat(energySample.value) *
+            (energySample.unit === "kWh" ? 1000 : 1));
+          await this.sessions.onMeterValues(body.stationId, payload.connectorId, energyWh);
+        }
       } else if (msgType === 2 && action === "StopTransaction") {
         await this.sessions.onStopTransaction(
           body.stationId,

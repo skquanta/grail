@@ -139,7 +139,7 @@
         <span class="session-value" id="sess-status">—</span>
       </div>
       <div class="session-row">
-        <span class="session-label">Energy</span>
+        <span class="session-label">Energy used</span>
         <span class="session-value" id="sess-energy">—</span>
       </div>
       <div class="session-row">
@@ -304,9 +304,15 @@
     statusEl.textContent = s.status || '—';
     statusEl.className = 'session-value ' + (s.status || '').toLowerCase();
 
-    const kwh = s.energyDeliveredKwh != null
-      ? s.energyDeliveredKwh.toFixed(4) + ' kWh'
-      : s.meterStartWh != null ? `started @ ${s.meterStartWh} Wh` : '—';
+    let kwh = '—';
+    if (s.energyDeliveredKwh != null) {
+      kwh = s.energyDeliveredKwh.toFixed(4) + ' kWh';
+    } else if (s.liveEnergyWh != null && s.meterStartWh != null) {
+      const consumed = Math.max(0, s.liveEnergyWh - s.meterStartWh);
+      kwh = (consumed / 1000).toFixed(4) + ' kWh (live)';
+    } else if (['CHARGING','OCPP_STARTING','ENDING'].includes(s.status)) {
+      kwh = 'waiting for meter…';
+    }
     document.getElementById('sess-energy').textContent = kwh;
     document.getElementById('sess-locked').textContent = s.usdcLocked != null ? s.usdcLocked + ' USDC' : '—';
 
