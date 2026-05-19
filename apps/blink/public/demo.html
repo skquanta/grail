@@ -176,7 +176,7 @@
   const actionBase = `${location.origin}/v1/charge/${tenant}/${station}/${connector}`;
 
   let walletPubkey = null;
-  let activeSessionId = null;
+  let activeSessionId = localStorage.getItem(`grail_session_${station}`) || null;
   let pollTimer = null;
 
   function setStatus(msg, type) {
@@ -241,6 +241,7 @@
       });
       const confirmData = await confirmRes.json();
       activeSessionId = confirmData.sessionId;
+      localStorage.setItem(`grail_session_${station}`, activeSessionId);
 
       setStatus(
         `✅ ${message} — session started<br>` +
@@ -295,6 +296,7 @@
       if (s.status === 'SETTLED' || s.status === 'FAILED') {
         clearInterval(pollTimer);
         document.getElementById('stop-btn').style.display = 'none';
+        localStorage.removeItem(`grail_session_${station}`);
       }
     } catch (_) {}
   }
@@ -373,6 +375,25 @@
     const provider = window.solana || window.backpack;
     if (provider?.isConnected) {
       await connectWallet();
+    }
+    // Restore active session if one was in progress
+    if (activeSessionId) {
+      const res = await fetch(`${location.origin}/v1/charge/session/${activeSessionId}`).catch(() => null);
+      if (res?.ok) {
+        const s = await res.json();
+        if (s && !s.error && ['OCPP_STARTING','CHARGING','ENDING'].includes(s.status)) {
+          document.getElementById('charge-section').style.display = 'none';
+          document.getElementById('session-box').classList.add('visible');
+          document.getElementById('stop-btn').style.display = 'block';
+          setStatus('Session in progress — reconnected.', 'info');
+          updateSessionBox(s);
+          startPolling();
+        } else {
+          // Session is settled/failed — clear storage
+          localStorage.removeItem(`grail_session_${station}`);
+          activeSessionId = null;
+        }
+      }
     }
   });
 </script>
