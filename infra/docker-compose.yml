@@ -8,9 +8,6 @@
 # Usage on EC2 (from repo root):
 #   docker compose -f infra/docker-compose.yml up -d --build
 #
-# View cloudflared's quick tunnel URL:
-#   docker logs grail-cloudflared 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1
-#
 # Stop:
 #   docker compose -f infra/docker-compose.yml down
 
@@ -37,14 +34,3 @@ services:
     depends_on:
       - grail-midlayer
 
-  # Cloudflare quick tunnel — gives an ephemeral *.trycloudflare.com HTTPS URL.
-  # No account/auth required. Tunnel URL changes on every restart; keep this service running.
-  # Capture the URL via:  docker logs grail-cloudflared 2>&1 | grep trycloudflare
-  grail-cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: grail-cloudflared
-    network_mode: host
-    command: tunnel --url http://localhost:3000 --no-autoupdate
-    restart: unless-stopped
-    depends_on:
-      - grail-blink
