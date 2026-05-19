@@ -34,7 +34,7 @@ model Session {
   usdcLocked          Float
   ocppTransactionId   String?        @unique
   meterStartWh        Int?
-  liveEnergyWh        Int?
+  liveEnergyKwh       Float?
   energyDeliveredKwh  Float?
   finalCostUsdc       Float?
   grailFeeUsdc        Float?

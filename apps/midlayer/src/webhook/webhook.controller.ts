@@ -74,9 +74,9 @@ export class WebhookController {
           ?.flatMap(mv => mv.sampledValue ?? [])
           .find(sv => sv.measurand === "Energy.Active.Import.Register");
         if (energySample?.value != null) {
-          const energyWh = Math.round(parseFloat(energySample.value) *
-            (energySample.unit === "kWh" ? 1000 : 1));
-          await this.sessions.onMeterValues(body.stationId, payload.connectorId, energyWh);
+          const raw = parseFloat(energySample.value);
+          const energyKwh = energySample.unit === "Wh" ? raw / 1000 : raw;
+          await this.sessions.onMeterValues(body.stationId, payload.connectorId, energyKwh);
         }
       } else if (msgType === 2 && action === "StopTransaction") {
         await this.sessions.onStopTransaction(

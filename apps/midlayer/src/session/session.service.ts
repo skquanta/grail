@@ -121,7 +121,7 @@ export class SessionService {
   }
 
   // Webhook handler entrypoints — see WebhookController.
-  async onMeterValues(stationId: string, connectorId: number, energyWh: number): Promise<void> {
+  async onMeterValues(stationId: string, connectorId: number, energyKwh: number): Promise<void> {
     const session = await this.db.session.findFirst({
       where: { stationId, connectorId, status: "CHARGING" },
       orderBy: { startedAt: "desc" },
@@ -129,7 +129,7 @@ export class SessionService {
     if (!session) return;
     await this.db.session.update({
       where: { id: session.id },
-      data: { liveEnergyWh: energyWh },
+      data: { liveEnergyKwh: energyKwh },
     });
   }
 
